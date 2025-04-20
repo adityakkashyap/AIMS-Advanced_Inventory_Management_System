@@ -20,6 +20,10 @@ public class LoginUI {
         initializeUI();
     }
 
+    public void display() {
+        frame.setVisible(true);
+    }
+
     private void handleLogin(String username, String password) {
         if (userRepository.validateCredentials(username, password)) {
             String roleStr = userRepository.getUserRole(username);
@@ -79,7 +83,4 @@ public class LoginUI {
         frame.add(panel);
     }
 
-    public void display() {
-        frame.setVisible(true);
-    }
 }
