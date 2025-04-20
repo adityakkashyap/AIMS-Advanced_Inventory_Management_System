@@ -70,16 +70,14 @@ public class ProductRepository {
         return null;
     }
     
-    public boolean updateStock(int productId, int quantityChange) {
-        String query = "UPDATE products SET stock = stock + ? " +
-                      "WHERE id = ? AND (stock + ?) >= 0";
-        
+    public boolean updateStock(int productId, int quantity) {
+        String query = "UPDATE products SET stock = stock + ? WHERE id = ? AND (stock + ?) >= 0";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(query)) {
-                
-            stmt.setInt(1, quantityChange);
+            
+            stmt.setInt(1, quantity);
             stmt.setInt(2, productId);
-            stmt.setInt(3, quantityChange);
+            stmt.setInt(3, quantity);
             
             return stmt.executeUpdate() > 0;
         } catch (SQLException e) {
@@ -90,10 +88,9 @@ public class ProductRepository {
 
     public boolean addProduct(String description, double price, int stock) {
         String query = "INSERT INTO products (description, price, stock) VALUES (?, ?, ?)";
-        
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(query)) {
-                
+            
             stmt.setString(1, description);
             stmt.setDouble(2, price);
             stmt.setInt(3, stock);

@@ -2,6 +2,9 @@ package com.inventory.ui;
 
 import com.inventory.InventoryFacade;
 import com.inventory.db.DatabaseConnection;
+import com.inventory.model.UserRole;
+import com.inventory.repository.UserRepository;
+
 import javax.swing.*;
 import java.awt.*;
 import java.sql.*;
@@ -10,9 +13,33 @@ public class LoginUI {
     private JFrame frame;
     private JTextField usernameField;
     private JPasswordField passwordField;
+    private final UserRepository userRepository;
 
     public LoginUI() {
+        this.userRepository = new UserRepository();
         initializeUI();
+    }
+
+    private void handleLogin(String username, String password) {
+        if (userRepository.validateCredentials(username, password)) {
+            String roleStr = userRepository.getUserRole(username);
+            try {
+                UserRole role = UserRole.fromString(roleStr);
+                InventoryManagementUI ui = new InventoryManagementUI(new InventoryFacade(), role);
+                ui.display();
+                frame.dispose();
+            } catch (IllegalArgumentException e) {
+                JOptionPane.showMessageDialog(frame,
+                    "Invalid role configuration",
+                    "System Error",
+                    JOptionPane.ERROR_MESSAGE);
+            }
+        } else {
+            JOptionPane.showMessageDialog(frame,
+                "Invalid credentials",
+                "Login Failed",
+                JOptionPane.ERROR_MESSAGE);
+        }
     }
 
     private void initializeUI() {
@@ -44,45 +71,12 @@ public class LoginUI {
         // Login button
         gbc.gridx = 1; gbc.gridy = 2;
         JButton loginButton = new JButton("Login");
-        loginButton.addActionListener(e -> handleLogin());
+        loginButton.addActionListener(e -> 
+            handleLogin(usernameField.getText(), new String(passwordField.getPassword()))
+        );
         panel.add(loginButton, gbc);
 
         frame.add(panel);
-    }
-
-    private void handleLogin() {
-        String username = usernameField.getText();
-        String password = new String(passwordField.getPassword());
-
-        try (Connection conn = DatabaseConnection.getConnection()) {
-            String query = "SELECT id, username, role, password FROM users WHERE username = ? AND password = ?";
-            PreparedStatement pstmt = conn.prepareStatement(query);
-            pstmt.setString(1, username);
-            pstmt.setString(2, password); // In production, use password hashing!
-
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) {
-                String role = rs.getString("role");
-                int userId = rs.getInt("id");
-
-                frame.dispose(); // Close login window
-                
-                // Create and show main UI with appropriate permissions
-                InventoryFacade facade = new InventoryFacade();
-                InventoryManagementUI mainUI = new InventoryManagementUI(facade, role);
-                mainUI.display();
-            } else {
-                JOptionPane.showMessageDialog(frame, 
-                    "Invalid credentials", 
-                    "Login Error", 
-                    JOptionPane.ERROR_MESSAGE);
-            }
-        } catch (SQLException ex) {
-            JOptionPane.showMessageDialog(frame, 
-                "Database error: " + ex.getMessage(), 
-                "Error", 
-                JOptionPane.ERROR_MESSAGE);
-        }
     }
 
     public void display() {

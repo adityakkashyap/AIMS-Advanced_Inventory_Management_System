@@ -3,6 +3,7 @@ package com.inventory.ui;
 import com.inventory.InventoryFacade;
 import com.inventory.model.OrderData;
 import com.inventory.model.Product;
+import com.inventory.model.UserRole;
 import com.inventory.service.Observer;
 
 import javax.swing.*;
@@ -11,7 +12,7 @@ import java.awt.*;
 import java.util.List;
 
 public class InventoryManagementUI implements Observer {
-    private final String userRole;
+    private final UserRole userRole;
     private final InventoryFacade facade;
     private JFrame frame;
     private JTextArea logArea;
@@ -20,9 +21,9 @@ public class InventoryManagementUI implements Observer {
     // Declare the product list model at class level
     private DefaultListModel<String> productListModel;
 
-    public InventoryManagementUI(InventoryFacade facade, String userRole) {
+    public InventoryManagementUI(InventoryFacade facade, UserRole role) {
         this.facade = facade;
-        this.userRole = userRole;
+        this.userRole = role;
         this.facade.registerObserver(this);
         initializeUI();
     }
@@ -40,12 +41,12 @@ public class InventoryManagementUI implements Observer {
         tabbedPane.add("Products", createProductPanel());
         
         // Add Orders tab only for admin and sales roles
-        if (userRole.equals("admin") || userRole.equals("sales")) {
+        if (userRole.canManageOrders()) {
             tabbedPane.add("Orders", createOrderPanel());
         }
         
         // Add Reports tab only for admin role
-        if (userRole.equals("admin")) {
+        if (userRole.canViewReports()) {
             tabbedPane.add("Reports", createReportPanel());
         }
     
@@ -64,60 +65,18 @@ public class InventoryManagementUI implements Observer {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBorder(new EmptyBorder(10, 10, 10, 10));
     
-        // Initialize the class-level product list model
+        // Product List
         productListModel = new DefaultListModel<>();
         JList<String> productList = new JList<>(productListModel);
         productList.setFont(new Font("SansSerif", Font.PLAIN, 14));
         JScrollPane scrollPane = new JScrollPane(productList);
         scrollPane.setBorder(BorderFactory.createTitledBorder("Product List"));
     
-        // Populate product list initially
-        refreshProductList();
+        // Add Product Panel (Only for admin and inventory roles)
+        if (userRole.canManageProducts()) {
+            JPanel addProductPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+            addProductPanel.setBorder(BorderFactory.createTitledBorder("Add New Product"));
     
-        // Create stock update form
-        JPanel form = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        JTextField idField = new JTextField(5);
-        JTextField qtyField = new JTextField(5);
-        JButton updateBtn = new JButton("Update Stock");
-    
-        // Only admin and inventory can update stock
-        if (userRole.equals("admin") || userRole.equals("inventory")) {
-            updateBtn.addActionListener(e -> {
-                try {
-                    int id = Integer.parseInt(idField.getText());
-                    int qty = Integer.parseInt(qtyField.getText());
-                    boolean result = facade.updateStock(id, qty);
-    
-                    if (result) {
-                        log("Updated stock for product #" + id);
-                        refreshProductList();
-                    } else {
-                        log("Failed to update stock for product #" + id);
-                    }
-                } catch (NumberFormatException ex) {
-                    log("Invalid input: " + ex.getMessage());
-                }
-            });
-    
-            form.add(new JLabel("Product ID:"));
-            form.add(idField);
-            form.add(new JLabel("Quantity to Add:"));
-            form.add(qtyField);
-            form.add(updateBtn);
-        }
-    
-        // Create refresh button for manual refresh
-        JButton refreshBtn = new JButton("Refresh List");
-        refreshBtn.addActionListener(e -> {
-            refreshProductList();
-            log("Product list refreshed.");
-        });
-    
-        // Add Product Form (only for admin and inventory)
-        if (userRole.equals("admin") || userRole.equals("inventory")) {
-            JPanel addProductForm = new JPanel(new FlowLayout(FlowLayout.LEFT));
-            addProductForm.setBorder(BorderFactory.createTitledBorder("Add New Product"));
-            
             JTextField descField = new JTextField(20);
             JTextField priceField = new JTextField(8);
             JSpinner stockSpinner = new JSpinner(new SpinnerNumberModel(0, 0, 1000, 1));
@@ -126,9 +85,6 @@ public class InventoryManagementUI implements Observer {
             addButton.addActionListener(e -> {
                 try {
                     String description = descField.getText().trim();
-                    double price = Double.parseDouble(priceField.getText());
-                    int stock = (Integer) stockSpinner.getValue();
-    
                     if (description.isEmpty()) {
                         JOptionPane.showMessageDialog(frame,
                             "Please enter a product description",
@@ -137,6 +93,7 @@ public class InventoryManagementUI implements Observer {
                         return;
                     }
     
+                    double price = Double.parseDouble(priceField.getText());
                     if (price <= 0) {
                         JOptionPane.showMessageDialog(frame,
                             "Price must be greater than 0",
@@ -145,7 +102,9 @@ public class InventoryManagementUI implements Observer {
                         return;
                     }
     
+                    int stock = (Integer) stockSpinner.getValue();
                     boolean success = facade.addProduct(description, price, stock);
+                    
                     if (success) {
                         log("Added new product: " + description);
                         descField.setText("");
@@ -163,32 +122,75 @@ public class InventoryManagementUI implements Observer {
                 }
             });
     
-            addProductForm.add(new JLabel("Description:"));
-            addProductForm.add(descField);
-            addProductForm.add(new JLabel("Price:"));
-            addProductForm.add(priceField);
-            addProductForm.add(new JLabel("Initial Stock:"));
-            addProductForm.add(stockSpinner);
-            addProductForm.add(addButton);
+            addProductPanel.add(new JLabel("Description:"));
+            addProductPanel.add(descField);
+            addProductPanel.add(new JLabel("Price:"));
+            addProductPanel.add(priceField);
+            addProductPanel.add(new JLabel("Initial Stock:"));
+            addProductPanel.add(stockSpinner);
+            addProductPanel.add(addButton);
     
-            // Add the form to the top of the panel
-            JPanel topPanel = new JPanel(new BorderLayout());
-            topPanel.add(addProductForm, BorderLayout.NORTH);
+            panel.add(addProductPanel, BorderLayout.NORTH);
+        }
+    
+        // Update Stock Panel (Only for admin and inventory roles)
+        if (userRole.canManageProducts()) {
+            JPanel updateStockPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+            updateStockPanel.setBorder(BorderFactory.createTitledBorder("Update Stock"));
+    
+            JTextField idField = new JTextField(5);
+            JSpinner quantitySpinner = new JSpinner(new SpinnerNumberModel(0, -1000, 1000, 1));
+            JButton updateButton = new JButton("Update Stock");
+    
+            updateButton.addActionListener(e -> {
+                try {
+                    int id = Integer.parseInt(idField.getText());
+                    int quantity = (Integer) quantitySpinner.getValue();
+                    
+                    boolean result = facade.updateStock(id, quantity);
+                    if (result) {
+                        log("Updated stock for product #" + id);
+                        idField.setText("");
+                        quantitySpinner.setValue(0);
+                        refreshProductList();
+                    } else {
+                        log("Failed to update stock for product #" + id);
+                    }
+                } catch (NumberFormatException ex) {
+                    JOptionPane.showMessageDialog(frame,
+                        "Please enter a valid product ID",
+                        "Invalid Input",
+                        JOptionPane.ERROR_MESSAGE);
+                }
+            });
+    
+            updateStockPanel.add(new JLabel("Product ID:"));
+            updateStockPanel.add(idField);
+            updateStockPanel.add(new JLabel("Quantity Change:"));
+            updateStockPanel.add(quantitySpinner);
+            updateStockPanel.add(updateButton);
+    
+            // Add both panels to a container
+            JPanel topPanel = new JPanel(new GridLayout(2, 1));
+            if (panel.getComponent(0) instanceof JPanel) {
+                topPanel.add(panel.getComponent(0));
+            }
+            topPanel.add(updateStockPanel);
             panel.add(topPanel, BorderLayout.NORTH);
         }
     
-        // Panel to hold refresh button (aligned right)
-        JPanel controlPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        controlPanel.add(refreshBtn);
-    
-        // Combine form and control panel at the bottom of product panel
-        JPanel bottomPanel = new JPanel(new BorderLayout());
-        if (userRole.equals("admin") || userRole.equals("inventory")) {
-            bottomPanel.add(form, BorderLayout.CENTER);
-        }
-        bottomPanel.add(controlPanel, BorderLayout.EAST);
+        // Add product list in center
         panel.add(scrollPane, BorderLayout.CENTER);
+    
+        // Refresh button at bottom
+        JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        JButton refreshBtn = new JButton("Refresh");
+        refreshBtn.addActionListener(e -> refreshProductList());
+        bottomPanel.add(refreshBtn);
         panel.add(bottomPanel, BorderLayout.SOUTH);
+    
+        // Initial population
+        refreshProductList();
     
         return panel;
     }
