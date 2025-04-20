@@ -63,64 +63,133 @@ public class InventoryManagementUI implements Observer {
     private JPanel createProductPanel() {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBorder(new EmptyBorder(10, 10, 10, 10));
-
+    
         // Initialize the class-level product list model
         productListModel = new DefaultListModel<>();
         JList<String> productList = new JList<>(productListModel);
         productList.setFont(new Font("SansSerif", Font.PLAIN, 14));
         JScrollPane scrollPane = new JScrollPane(productList);
         scrollPane.setBorder(BorderFactory.createTitledBorder("Product List"));
-
+    
         // Populate product list initially
         refreshProductList();
-
+    
         // Create stock update form
         JPanel form = new JPanel(new FlowLayout(FlowLayout.LEFT));
         JTextField idField = new JTextField(5);
         JTextField qtyField = new JTextField(5);
         JButton updateBtn = new JButton("Update Stock");
-
-        updateBtn.addActionListener(e -> {
-            try {
-                int id = Integer.parseInt(idField.getText());
-                int qty = Integer.parseInt(qtyField.getText());
-                boolean result = facade.updateStock(id, qty);
-
-                if (result) {
-                    log("Updated stock for product #" + id);
-                    refreshProductList();
-                } else {
-                    log("Failed to update stock for product #" + id);
+    
+        // Only admin and inventory can update stock
+        if (userRole.equals("admin") || userRole.equals("inventory")) {
+            updateBtn.addActionListener(e -> {
+                try {
+                    int id = Integer.parseInt(idField.getText());
+                    int qty = Integer.parseInt(qtyField.getText());
+                    boolean result = facade.updateStock(id, qty);
+    
+                    if (result) {
+                        log("Updated stock for product #" + id);
+                        refreshProductList();
+                    } else {
+                        log("Failed to update stock for product #" + id);
+                    }
+                } catch (NumberFormatException ex) {
+                    log("Invalid input: " + ex.getMessage());
                 }
-            } catch (NumberFormatException ex) {
-                log("Invalid input: " + ex.getMessage());
-            }
-        });
-
-        form.add(new JLabel("Product ID:"));
-        form.add(idField);
-        form.add(new JLabel("Quantity to Add:"));
-        form.add(qtyField);
-        form.add(updateBtn);
-
+            });
+    
+            form.add(new JLabel("Product ID:"));
+            form.add(idField);
+            form.add(new JLabel("Quantity to Add:"));
+            form.add(qtyField);
+            form.add(updateBtn);
+        }
+    
         // Create refresh button for manual refresh
         JButton refreshBtn = new JButton("Refresh List");
         refreshBtn.addActionListener(e -> {
             refreshProductList();
             log("Product list refreshed.");
         });
-
+    
+        // Add Product Form (only for admin and inventory)
+        if (userRole.equals("admin") || userRole.equals("inventory")) {
+            JPanel addProductForm = new JPanel(new FlowLayout(FlowLayout.LEFT));
+            addProductForm.setBorder(BorderFactory.createTitledBorder("Add New Product"));
+            
+            JTextField descField = new JTextField(20);
+            JTextField priceField = new JTextField(8);
+            JSpinner stockSpinner = new JSpinner(new SpinnerNumberModel(0, 0, 1000, 1));
+            JButton addButton = new JButton("Add Product");
+    
+            addButton.addActionListener(e -> {
+                try {
+                    String description = descField.getText().trim();
+                    double price = Double.parseDouble(priceField.getText());
+                    int stock = (Integer) stockSpinner.getValue();
+    
+                    if (description.isEmpty()) {
+                        JOptionPane.showMessageDialog(frame,
+                            "Please enter a product description",
+                            "Invalid Input",
+                            JOptionPane.WARNING_MESSAGE);
+                        return;
+                    }
+    
+                    if (price <= 0) {
+                        JOptionPane.showMessageDialog(frame,
+                            "Price must be greater than 0",
+                            "Invalid Input",
+                            JOptionPane.WARNING_MESSAGE);
+                        return;
+                    }
+    
+                    boolean success = facade.addProduct(description, price, stock);
+                    if (success) {
+                        log("Added new product: " + description);
+                        descField.setText("");
+                        priceField.setText("");
+                        stockSpinner.setValue(0);
+                        refreshProductList();
+                    } else {
+                        log("Failed to add product");
+                    }
+                } catch (NumberFormatException ex) {
+                    JOptionPane.showMessageDialog(frame,
+                        "Please enter a valid price",
+                        "Invalid Input",
+                        JOptionPane.ERROR_MESSAGE);
+                }
+            });
+    
+            addProductForm.add(new JLabel("Description:"));
+            addProductForm.add(descField);
+            addProductForm.add(new JLabel("Price:"));
+            addProductForm.add(priceField);
+            addProductForm.add(new JLabel("Initial Stock:"));
+            addProductForm.add(stockSpinner);
+            addProductForm.add(addButton);
+    
+            // Add the form to the top of the panel
+            JPanel topPanel = new JPanel(new BorderLayout());
+            topPanel.add(addProductForm, BorderLayout.NORTH);
+            panel.add(topPanel, BorderLayout.NORTH);
+        }
+    
         // Panel to hold refresh button (aligned right)
         JPanel controlPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         controlPanel.add(refreshBtn);
-
+    
         // Combine form and control panel at the bottom of product panel
         JPanel bottomPanel = new JPanel(new BorderLayout());
-        bottomPanel.add(form, BorderLayout.CENTER);
+        if (userRole.equals("admin") || userRole.equals("inventory")) {
+            bottomPanel.add(form, BorderLayout.CENTER);
+        }
         bottomPanel.add(controlPanel, BorderLayout.EAST);
         panel.add(scrollPane, BorderLayout.CENTER);
         panel.add(bottomPanel, BorderLayout.SOUTH);
-
+    
         return panel;
     }
 

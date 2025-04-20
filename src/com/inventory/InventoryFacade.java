@@ -48,7 +48,6 @@ public class InventoryFacade {
         notificationService.addObserver(observer);
     }
 
-    // Add this method to the InventoryFacade class
     public String generateReport(String type) {
         switch (type.toLowerCase()) {
             case "inventory":
@@ -58,5 +57,13 @@ public class InventoryFacade {
             default:
                 return "Unknown report type: " + type;
         }
+    }
+
+    public boolean addProduct(String description, double price, int stock) {
+        boolean success = productRepo.addProduct(description, price, stock);
+        if (success) {
+            notificationService.notifyObservers("New product added: " + description);
+        }
+        return success;
     }
 }

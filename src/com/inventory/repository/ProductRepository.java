@@ -87,4 +87,21 @@ public class ProductRepository {
             return false;
         }
     }
+
+    public boolean addProduct(String description, double price, int stock) {
+        String query = "INSERT INTO products (description, price, stock) VALUES (?, ?, ?)";
+        
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+                
+            stmt.setString(1, description);
+            stmt.setDouble(2, price);
+            stmt.setInt(3, stock);
+            
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
 }
