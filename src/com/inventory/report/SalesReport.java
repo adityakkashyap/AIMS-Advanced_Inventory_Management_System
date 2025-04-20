@@ -1,32 +1,26 @@
 package com.inventory.report;
 
-import java.util.Map;
 import com.inventory.model.Product;
 import java.util.List;
 
 public class SalesReport implements Report {
     @Override
-    public String generateReport(Map<String, Object> data) {
+    public String generate(List<Product> products) {
         StringBuilder report = new StringBuilder();
-        report.append("===== SALES REPORT =====\n");
-
-        @SuppressWarnings("unchecked")
-        List<Product> products = (List<Product>) data.get("products");
-
-        double totalValue = 0;
-        report.append("Product Sales Value:\n");
-
+        report.append("Sales Value Report\n");
+        report.append("----------------\n\n");
+        
+        double totalValue = 0.0;
         for (Product product : products) {
-            double productValue = product.getPrice() * product.getQuantity();
+            double productValue = product.getPrice() * product.getStock();
             totalValue += productValue;
-            report.append(String.format("- %s: $%.2f ($%.2f x %d units)\n", 
-                          product.getDescription(), productValue,
-                          product.getPrice(), product.getQuantity()));
+            
+            report.append(String.format("Product: %s, Unit Price: $%.2f, Stock: %d\n",
+                product.getDescription(), product.getPrice(), product.getStock()));
         }
-
-        report.append(String.format("\nTotal Inventory Value: $%.2f\n", totalValue));
-        report.append("========================\n");
-
+        
+        report.append(String.format("\nTotal Inventory Value: $%.2f", totalValue));
+        
         return report.toString();
     }
 }

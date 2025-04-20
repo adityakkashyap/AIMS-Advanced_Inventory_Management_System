@@ -1,29 +1,23 @@
 package com.inventory.report;
 
-import java.util.Map;
 import com.inventory.model.Product;
 import java.util.List;
 
 public class InventoryReport implements Report {
     @Override
-    public String generateReport(Map<String, Object> data) {
+    public String generate(List<Product> products) {
         StringBuilder report = new StringBuilder();
-        report.append("===== INVENTORY REPORT =====\n");
-
-        @SuppressWarnings("unchecked")
-        List<Product> products = (List<Product>) data.get("products");
-
-        report.append("Current Inventory Status:\n");
-
+        report.append("Inventory Report\n");
+        report.append("---------------\n\n");
+        
         for (Product product : products) {
-            report.append(String.format("- %s: %d units in stock ($%.2f each)\n", 
-                          product.getDescription(), product.getQuantity(), product.getPrice()));
+            report.append(String.format("Product: %s, Stock: %d, Price: $%.2f\n",
+                product.getDescription(), product.getStock(), product.getPrice()));
         }
-
-        int totalItems = products.stream().mapToInt(Product::getQuantity).sum();
-        report.append(String.format("\nTotal Items in Inventory: %d\n", totalItems));
-        report.append("============================\n");
-
+        
+        int totalItems = products.stream().mapToInt(Product::getStock).sum();
+        report.append(String.format("\nTotal Items in Stock: %d", totalItems));
+        
         return report.toString();
     }
 }

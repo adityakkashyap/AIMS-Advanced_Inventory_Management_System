@@ -4,42 +4,27 @@ import com.inventory.model.Product;
 import com.inventory.repository.ProductRepository;
 
 public class InventoryService {
-    private ProductRepository repository;
-    private NotificationService notificationService;
+    private final ProductRepository productRepo;
+    private final NotificationService notificationService;
 
-    public InventoryService(ProductRepository repository, NotificationService notificationService) {
-        this.repository = repository;
+    public InventoryService(ProductRepository productRepo, NotificationService notificationService) {
+        this.productRepo = productRepo;
         this.notificationService = notificationService;
     }
 
-    public boolean updateInventory(int productId, int quantityChange) {
-        Product product = repository.findById(productId);
+    public boolean updateStock(int productId, int quantityChange) {
+        Product product = productRepo.findById(productId);
         if (product == null) {
             return false;
         }
 
-        int newQuantity = product.getQuantity() + quantityChange;
+        int newQuantity = product.getStock() + quantityChange;
         if (newQuantity < 0) {
             return false;
         }
 
-        product.setQuantity(newQuantity);
-        repository.save(product);
-
-        // Notify observers about inventory change
-        notificationService.notifyObservers("Product " + product.getDescription() +
-                " inventory updated to " + newQuantity);
-
-        // Alert if stock is low (less than 5)
-        if (newQuantity < 5) {
-            notificationService.notifyObservers("LOW STOCK ALERT: " + product.getDescription() +
-                    " has only " + newQuantity + " remaining!");
-        }
-
+        product.setStock(newQuantity);
+        notificationService.notifyObservers("Stock updated for product #" + productId);
         return true;
-    }
-
-    public Product getProduct(int productId) {
-        return repository.findById(productId);
     }
 }

@@ -1,7 +1,8 @@
 package com.inventory.report;
 
-import java.util.Map;
+import com.inventory.model.Product;
+import java.util.List;
 
 public interface Report {
-    String generateReport(Map<String, Object> data);
+    String generate(List<Product> products);
 }

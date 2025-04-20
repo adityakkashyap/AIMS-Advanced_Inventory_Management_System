@@ -1,17 +1,23 @@
 package com.inventory;
 
-import com.inventory.ui.InventoryManagementUI;
+import com.inventory.ui.LoginUI;
+import javax.swing.SwingUtilities;
+import javax.swing.UIManager;
 
 public class InventoryManagementApp {
     public static void main(String[] args) {
-        // Initialize the system
-        System.out.println("Initializing Inventory Management System...");
+        // Set system look and feel
+        try {
+            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
-        // Create the facade that encapsulates the whole system
-        InventoryFacade facade = new InventoryFacade();
-
-        // Initialize the UI with the facade and display it
-        InventoryManagementUI ui = new InventoryManagementUI(facade);
-        ui.display();
+        // Initialize and show login window
+        SwingUtilities.invokeLater(() -> {
+            System.out.println("Initializing Inventory Management System...");
+            LoginUI loginUI = new LoginUI();
+            loginUI.display();
+        });
     }
 }

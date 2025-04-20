@@ -11,6 +11,7 @@ import java.awt.*;
 import java.util.List;
 
 public class InventoryManagementUI implements Observer {
+    private final String userRole;
     private final InventoryFacade facade;
     private JFrame frame;
     private JTextArea logArea;
@@ -19,8 +20,9 @@ public class InventoryManagementUI implements Observer {
     // Declare the product list model at class level
     private DefaultListModel<String> productListModel;
 
-    public InventoryManagementUI(InventoryFacade facade) {
+    public InventoryManagementUI(InventoryFacade facade, String userRole) {
         this.facade = facade;
+        this.userRole = userRole;
         this.facade.registerObserver(this);
         initializeUI();
     }
@@ -31,18 +33,29 @@ public class InventoryManagementUI implements Observer {
         frame.setSize(900, 600);
         frame.setLocationRelativeTo(null);
         frame.setLayout(new BorderLayout());
-
+    
         JTabbedPane tabbedPane = new JTabbedPane();
+        
+        // Always add Products tab for all roles
         tabbedPane.add("Products", createProductPanel());
-        tabbedPane.add("Orders", createOrderPanel());
-        tabbedPane.add("Reports", createReportPanel());
-
+        
+        // Add Orders tab only for admin and sales roles
+        if (userRole.equals("admin") || userRole.equals("sales")) {
+            tabbedPane.add("Orders", createOrderPanel());
+        }
+        
+        // Add Reports tab only for admin role
+        if (userRole.equals("admin")) {
+            tabbedPane.add("Reports", createReportPanel());
+        }
+    
+        // Create log area
         logArea = new JTextArea(6, 60);
         logArea.setEditable(false);
         logArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
         JScrollPane logScrollPane = new JScrollPane(logArea);
         logScrollPane.setBorder(BorderFactory.createTitledBorder("System Log"));
-
+    
         frame.add(tabbedPane, BorderLayout.CENTER);
         frame.add(logScrollPane, BorderLayout.SOUTH);
     }
@@ -147,10 +160,19 @@ public class InventoryManagementUI implements Observer {
                 int productId = Integer.parseInt(selection.split(" - ")[0]);
                 int quantity = (Integer) quantitySpinner.getValue();
                 Product p = facade.getProductDetails(productId);
-
+        
                 if (p != null) {
+                    if (quantity > p.getStock()) {
+                        JOptionPane.showMessageDialog(frame,
+                            "Not enough stock available. Current stock: " + p.getStock(),
+                            "Insufficient Stock",
+                            JOptionPane.WARNING_MESSAGE);
+                        return;
+                    }
+        
                     orderData.addItem(productId, quantity);
-                    orderItemsModel.addElement(quantity + " x " + p.getDescription());
+                    orderItemsModel.addElement(String.format("%d x %s (Stock remaining: %d)",
+                        quantity, p.getDescription(), p.getStock() - quantity));
                     log("Added " + quantity + " x " + p.getDescription() + " to order.");
                 }
             }
@@ -159,17 +181,27 @@ public class InventoryManagementUI implements Observer {
         JButton completeBtn = new JButton("Complete Order");
         completeBtn.addActionListener(e -> {
             if (orderItemsModel.isEmpty()) {
-                log("Cannot complete empty order.");
+                JOptionPane.showMessageDialog(frame,
+                    "Cannot complete empty order.",
+                    "Empty Order",
+                    JOptionPane.WARNING_MESSAGE);
                 return;
             }
-
+        
             boolean result = facade.createOrder(orderData);
             if (result) {
-                log("Order completed successfully.");
+                JOptionPane.showMessageDialog(frame,
+                    "Order completed successfully!",
+                    "Success",
+                    JOptionPane.INFORMATION_MESSAGE);
                 orderItemsModel.clear();
                 orderData.getItems().clear();
+                refreshProductList();
             } else {
-                log("Order failed. Check stock.");
+                JOptionPane.showMessageDialog(frame,
+                    "Order failed. Insufficient stock for one or more items.",
+                    "Order Failed",
+                    JOptionPane.ERROR_MESSAGE);
             }
         });
 

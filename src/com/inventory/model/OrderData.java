@@ -1,39 +1,20 @@
 package com.inventory.model;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 
 public class OrderData {
-    private List<OrderItemData> items;
+    private final Map<Integer, Integer> items;
 
     public OrderData() {
-        this.items = new ArrayList<>();
+        this.items = new HashMap<>();
     }
 
     public void addItem(int productId, int quantity) {
-        items.add(new OrderItemData(productId, quantity));
+        items.put(productId, quantity);
     }
 
-    public List<OrderItemData> getItems() {
+    public Map<Integer, Integer> getItems() {
         return items;
-    }
-
-    // Inner class representing individual order items
-    public static class OrderItemData {
-        private int productId;
-        private int quantity;
-
-        public OrderItemData(int productId, int quantity) {
-            this.productId = productId;
-            this.quantity = quantity;
-        }
-
-        public int getProductId() {
-            return productId;
-        }
-
-        public int getQuantity() {
-            return quantity;
-        }
     }
 }
