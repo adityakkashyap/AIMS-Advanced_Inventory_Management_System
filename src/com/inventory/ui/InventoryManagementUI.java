@@ -77,7 +77,8 @@ public class InventoryManagementUI implements Observer, ProductView, OrderView, 
             tabbedPane.add("Orders", createOrderPanel());
         }
         
-        // Add Reports tab only for admin role
+        // Add Reports tab based on role-specific report access
+        // Check if user can access any report type instead of using deprecated canViewReports()
         if (userRole.canViewReport("sales") || userRole.canViewReport("inventory")) {
             tabbedPane.add("Reports", createReportPanel());
         }
@@ -87,8 +88,7 @@ public class InventoryManagementUI implements Observer, ProductView, OrderView, 
         logArea.setEditable(false);
         logArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
         JScrollPane logScrollPane = new JScrollPane(logArea);
-        logScrollPane.setBorder(BorderFactory.createTitledBorder("System Log"));
-
+        
         frame.add(tabbedPane, BorderLayout.CENTER);
         frame.add(logScrollPane, BorderLayout.SOUTH);
     }
@@ -254,9 +254,14 @@ public class InventoryManagementUI implements Observer, ProductView, OrderView, 
         reportTypeBox.setModel(model);
         
         JButton generateBtn = new JButton("Generate Report");
-        generateBtn.addActionListener(e -> 
-            facade.getReportController().generateReport((String) reportTypeBox.getSelectedItem())
-        );
+        generateBtn.addActionListener(e -> {
+            String reportType = (String) reportTypeBox.getSelectedItem();
+            if (reportType != null) {
+                String reportContent = facade.getReportController().generateReport(reportType);
+                displayReport(reportContent);
+                log("Generated " + reportType + " report");
+            }
+        });
         
         controlPanel.add(reportTypeBox);
         controlPanel.add(generateBtn);
@@ -265,6 +270,7 @@ public class InventoryManagementUI implements Observer, ProductView, OrderView, 
         // Report display area 
         reportArea = new JTextArea(20, 50);
         reportArea.setEditable(false);
+        reportArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
         panel.add(new JScrollPane(reportArea), BorderLayout.CENTER);
         
         return panel;

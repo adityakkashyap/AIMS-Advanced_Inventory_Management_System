@@ -33,12 +33,15 @@ public enum UserRole {
     }
 
     public boolean canViewReport(String reportType) {
+        // Admin can view all reports
         if (this == ADMIN) {
             return true;
         }
+        // Sales can only view sales reports
         if (this == SALES && reportType.equalsIgnoreCase("sales")) {
             return true;
         }
+        // Inventory can only view inventory reports
         if (this == INVENTORY && reportType.equalsIgnoreCase("inventory")) {
             return true;
         }

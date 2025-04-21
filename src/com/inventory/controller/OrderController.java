@@ -1,6 +1,4 @@
 package com.inventory.controller;
-
-import com.inventory.InventoryFacade;
 import com.inventory.model.OrderData;
 import com.inventory.model.Product;
 import com.inventory.repository.OrderRepository;
