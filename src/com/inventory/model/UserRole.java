@@ -32,6 +32,21 @@ public enum UserRole {
         return this == ADMIN || this == SALES;
     }
 
+    public boolean canViewReport(String reportType) {
+        if (this == ADMIN) {
+            return true;
+        }
+        if (this == SALES && reportType.equalsIgnoreCase("sales")) {
+            return true;
+        }
+        if (this == INVENTORY && reportType.equalsIgnoreCase("inventory")) {
+            return true;
+        }
+        return false;
+    }
+
+    // Deprecate this method in favor of canViewReport(String)
+    @Deprecated
     public boolean canViewReports() {
         return this == ADMIN;
     }

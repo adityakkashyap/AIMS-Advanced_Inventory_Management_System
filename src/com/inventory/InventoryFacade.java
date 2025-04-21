@@ -8,64 +8,90 @@ import com.inventory.model.OrderData;
 import com.inventory.repository.ProductRepository;
 import com.inventory.repository.OrderRepository;
 import com.inventory.service.NotificationService;
+import com.inventory.service.OrderProcessor;
 import com.inventory.report.ReportFactory;
+import com.inventory.controller.*;
 import java.util.List;
 
 public class InventoryFacade {
-    private final ProductRepository productRepo;
-    private final OrderRepository orderRepo;
+    private final ProductController productController;
+    private final OrderController orderController;
+    private final ReportController reportController;
     private final NotificationService notificationService;
-    private final ReportFactory reportFactory;
 
     public InventoryFacade() {
-        this.productRepo = new ProductRepository();
-        this.orderRepo = new OrderRepository();
+        ProductRepository productRepo = new ProductRepository();
+        OrderRepository orderRepo = new OrderRepository();
         this.notificationService = new NotificationService();
-        this.reportFactory = new ReportFactory();
+        
+        // Initialize controllers with repositories
+        this.productController = new ProductController(productRepo);
+        this.orderController = new OrderController(productRepo, orderRepo);
+        this.reportController = new ReportController(productRepo);
     }
 
+    // Getter methods for controllers
+    public ProductController getProductController() {
+        return productController;
+    }
+
+    public OrderController getOrderController() {
+        return orderController;
+    }
+
+    public ReportController getReportController() {
+        return reportController;
+    }
+
+    // Product operations delegated to ProductController
     public List<Product> getAllProducts() {
-        return productRepo.findAll();
+        return productController.getAllProducts();
     }
 
     public boolean updateStock(int productId, int quantity) {
-        boolean success = productRepo.updateStock(productId, quantity);
+        boolean success = productController.updateStock(productId, quantity);
         if (success) {
-            notificationService.notifyObservers("Stock updated for product #" + productId);
-        }
-        return success;
-    }
-
-    public boolean createOrder(OrderData orderData) {
-        boolean success = orderRepo.createOrder(orderData);
-        if (success) {
-            notificationService.notifyObservers("New order created");
+            notifyChange("Stock updated for product #" + productId);
         }
         return success;
     }
 
     public Product getProductDetails(int productId) {
-        return productRepo.findById(productId);
+        return productController.getProduct(productId);
     }
 
+    public boolean addProduct(String description, double price, int stock) {
+        boolean success = productController.addProduct(description, price, stock);
+        if (success) {
+            notifyChange("New product added: " + description);
+        }
+        return success;
+    }
+
+    // Order operations delegated to OrderController
+    public boolean createOrder(OrderData orderData) {
+        boolean success = orderController.processOrder(orderData);
+        if (success) {
+            notifyChange("New order created");
+        }
+        return success;
+    }
+
+    // Report operations delegated to ReportController
+    public String generateReport(String reportType) {
+        return reportController.generateReport(reportType);
+    }
+
+    // Observer pattern operations
     public void registerObserver(com.inventory.service.Observer observer) {
         notificationService.addObserver(observer);
     }
 
-    public String generateReport(String reportType) {
-        List<Product> products = getAllProducts();
-        Report report = reportFactory.createReport(reportType);
-        if (report != null) {
-            return report.generate(products);
-        }
-        return "Unknown report type: " + reportType;
+    public void removeObserver(com.inventory.service.Observer observer) {
+        notificationService.removeObserver(observer);
     }
 
-    public boolean addProduct(String description, double price, int stock) {
-        boolean success = productRepo.addProduct(description, price, stock);
-        if (success) {
-            notificationService.notifyObservers("New product added: " + description);
-        }
-        return success;
+    private void notifyChange(String message) {
+        notificationService.notifyObservers(message);
     }
 }

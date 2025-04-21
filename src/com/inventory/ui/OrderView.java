@@ -1,5 +1,6 @@
 package com.inventory.ui;
 
+import com.inventory.model.OrderData;
 import com.inventory.model.Product;
 import java.util.List;
 
@@ -10,4 +11,7 @@ public interface OrderView {
     void showErrorMessage(String message, String title);
     void showInfoMessage(String message, String title);
     void log(String message);
+    
+    OrderData getCurrentOrder();
+    void clearOrder();
 }

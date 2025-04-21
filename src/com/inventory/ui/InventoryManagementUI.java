@@ -4,6 +4,7 @@ import com.inventory.InventoryFacade;
 import com.inventory.controller.OrderController;
 import com.inventory.controller.ProductController;
 import com.inventory.controller.ReportController;
+import com.inventory.model.OrderData; // Add this import
 import com.inventory.model.Product;
 import com.inventory.model.UserRole;
 import com.inventory.service.Observer;
@@ -31,11 +32,6 @@ public class InventoryManagementUI implements Observer, ProductView, OrderView, 
     private JTextField updateStockIdField;
     private JSpinner updateStockQuantitySpinner;
     private JTextArea reportArea;
-    
-    // Controllers
-    private ProductController productController;
-    private OrderController orderController;
-    private ReportController reportController;
 
     public InventoryManagementUI(InventoryFacade facade, UserRole role) {
         this.facade = facade;
@@ -44,10 +40,14 @@ public class InventoryManagementUI implements Observer, ProductView, OrderView, 
         
         initializeUI();
         
-        // Initialize controllers after UI components are set up
-        this.productController = new ProductController(facade, this);
-        this.orderController = new OrderController(facade, this);
-        this.reportController = new ReportController(facade, this);
+        // Get controllers from facade and set views
+        ProductController productController = facade.getProductController();
+        OrderController orderController = facade.getOrderController();
+        ReportController reportController = facade.getReportController();
+        
+        productController.setView(this);
+        orderController.setView(this);
+        reportController.setView(this);
         
         // Initial data load
         if (userRole.canManageProducts() || userRole.canManageOrders()) {
@@ -78,7 +78,7 @@ public class InventoryManagementUI implements Observer, ProductView, OrderView, 
         }
         
         // Add Reports tab only for admin role
-        if (userRole.canViewReports()) {
+        if (userRole.canViewReport("sales") || userRole.canViewReport("inventory")) {
             tabbedPane.add("Reports", createReportPanel());
         }
 
@@ -118,13 +118,18 @@ public class InventoryManagementUI implements Observer, ProductView, OrderView, 
             JButton addButton = new JButton("Add Product");
             
             // Use controller for action
-            addButton.addActionListener(e -> 
-                productController.addProduct(
-                    addProductDescField.getText(), 
-                    addProductPriceField.getText(), 
-                    (Integer) addProductStockSpinner.getValue()
-                )
-            );
+            addButton.addActionListener(e -> {
+                try {
+                    double price = Double.parseDouble(addProductPriceField.getText().trim());
+                    facade.getProductController().addProduct(
+                        addProductDescField.getText(), 
+                        price, 
+                        (Integer) addProductStockSpinner.getValue()
+                    );
+                } catch (NumberFormatException ex) {
+                    showErrorMessage("Invalid price format", "Input Error");
+                }
+            });
             
             addProductPanel.add(new JLabel("Description:"));
             addProductPanel.add(addProductDescField);
@@ -143,12 +148,17 @@ public class InventoryManagementUI implements Observer, ProductView, OrderView, 
             JButton updateButton = new JButton("Update Stock");
             
             // Use controller for action
-            updateButton.addActionListener(e -> 
-                productController.updateStock(
-                    updateStockIdField.getText(), 
-                    (Integer) updateStockQuantitySpinner.getValue()
-                )
-            );
+            updateButton.addActionListener(e -> {
+                try {
+                    int productId = Integer.parseInt(updateStockIdField.getText().trim());
+                    facade.getProductController().updateStock(
+                        productId, 
+                        (Integer) updateStockQuantitySpinner.getValue()
+                    );
+                } catch (NumberFormatException ex) {
+                    showErrorMessage("Invalid product ID format", "Input Error");
+                }
+            });
             
             updateStockPanel.add(new JLabel("Product ID:"));
             updateStockPanel.add(updateStockIdField);
@@ -169,7 +179,7 @@ public class InventoryManagementUI implements Observer, ProductView, OrderView, 
         JButton refreshBtn = new JButton("Refresh");
         
         // Use controller for refresh
-        refreshBtn.addActionListener(e -> productController.refreshProducts());
+        refreshBtn.addActionListener(e -> facade.getProductController().refreshProducts());
         
         bottomPanel.add(refreshBtn);
         panel.add(bottomPanel, BorderLayout.SOUTH);
@@ -195,7 +205,7 @@ public class InventoryManagementUI implements Observer, ProductView, OrderView, 
 
         // Use controller for add to order action
         addToOrderBtn.addActionListener(e -> 
-            orderController.addToOrder(
+            facade.getOrderController().addToOrder(
                 (String) productSelector.getSelectedItem(),
                 (Integer) quantitySpinner.getValue()
             )
@@ -205,7 +215,7 @@ public class InventoryManagementUI implements Observer, ProductView, OrderView, 
         JButton completeBtn = new JButton("Complete Order");
         
         // Use controller for complete order action
-        completeBtn.addActionListener(e -> orderController.completeOrder());
+        completeBtn.addActionListener(e -> facade.getOrderController().completeOrder());
 
         // Layout components
         top.add(new JLabel("Product:"));
@@ -226,33 +236,37 @@ public class InventoryManagementUI implements Observer, ProductView, OrderView, 
 
     private JPanel createReportPanel() {
         JPanel panel = new JPanel(new BorderLayout());
-        panel.setBorder(new EmptyBorder(10, 10, 10, 10));
-
-        // Report type selection
-        JPanel top = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        JComboBox<String> reportTypeBox = new JComboBox<>(new String[]{"inventory", "sales"});
-        JButton generateBtn = new JButton("Generate");
-
-        // Report area
-        reportArea = new JTextArea(20, 60);
-        reportArea.setFont(new Font("Monospaced", Font.PLAIN, 13));
-        reportArea.setEditable(false);
-        JScrollPane scrollPane = new JScrollPane(reportArea);
-        scrollPane.setBorder(BorderFactory.createTitledBorder("Report"));
-
-        // Use controller for generate report action
+        
+        // Control panel for report options
+        JPanel controlPanel = new JPanel(new FlowLayout());
+        
+        // Use exact strings that match UserRole.canViewReport() checks
+        String[] reportTypes = {"sales", "inventory"};
+        JComboBox<String> reportTypeBox = new JComboBox<>(reportTypes);
+        
+        // Filter report types based on user role
+        DefaultComboBoxModel<String> model = new DefaultComboBoxModel<>();
+        for (String type : reportTypes) {
+            if (userRole.canViewReport(type)) {
+                model.addElement(type);
+            }
+        }
+        reportTypeBox.setModel(model);
+        
+        JButton generateBtn = new JButton("Generate Report");
         generateBtn.addActionListener(e -> 
-            reportController.generateReport((String) reportTypeBox.getSelectedItem())
+            facade.getReportController().generateReport((String) reportTypeBox.getSelectedItem())
         );
-
-        // Layout components
-        top.add(new JLabel("Report Type:"));
-        top.add(reportTypeBox);
-        top.add(generateBtn);
-
-        panel.add(top, BorderLayout.NORTH);
-        panel.add(scrollPane, BorderLayout.CENTER);
-
+        
+        controlPanel.add(reportTypeBox);
+        controlPanel.add(generateBtn);
+        panel.add(controlPanel, BorderLayout.NORTH);
+        
+        // Report display area 
+        reportArea = new JTextArea(20, 50);
+        reportArea.setEditable(false);
+        panel.add(new JScrollPane(reportArea), BorderLayout.CENTER);
+        
         return panel;
     }
 
@@ -316,6 +330,39 @@ public class InventoryManagementUI implements Observer, ProductView, OrderView, 
         }
     }
 
+    @Override
+    public OrderData getCurrentOrder() {
+        OrderData orderData = new OrderData();
+        // Parse each item in the order list model to extract product ID and quantity
+        for (int i = 0; i < orderItemsModel.size(); i++) {
+            String item = orderItemsModel.get(i);
+            try {
+                // Format is: "X x Product Description (Stock remaining: Y)"
+                String[] parts = item.split(" x ", 2);
+                int quantity = Integer.parseInt(parts[0]);
+                
+                // Get product ID from the selected item in productSelector
+                String selectedItem = (String) productSelector.getSelectedItem();
+                if (selectedItem != null && !selectedItem.isEmpty()) {
+                    int productId = Integer.parseInt(selectedItem.split(" - ")[0]);
+                    orderData.addItem(productId, quantity);
+                }
+            } catch (Exception e) {
+                // Skip malformed items
+                log("Error parsing order item: " + item);
+            }
+        }
+        return orderData;
+    }
+
+    @Override
+    public void clearOrder() {
+        clearOrderItems();
+        if (quantitySpinner != null) {
+            quantitySpinner.setValue(1);
+        }
+    }
+
     // ReportView implementation
     @Override
     public void displayReport(String reportContent) {
@@ -347,9 +394,9 @@ public class InventoryManagementUI implements Observer, ProductView, OrderView, 
     public void update(String message) {
         SwingUtilities.invokeLater(() -> {
             log(message);
-            productController.refreshProducts();
+            facade.getProductController().refreshProducts();
             if (userRole.canManageOrders()) {
-                orderController.refreshProductList();
+                facade.getOrderController().refreshProductList();
             }
         });
     }

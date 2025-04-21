@@ -1,20 +1,30 @@
 package com.inventory.controller;
 
-import com.inventory.InventoryFacade;
+import com.inventory.model.Product;
+import com.inventory.report.ReportFactory;
+import com.inventory.report.Report;
+import com.inventory.repository.ProductRepository;
 import com.inventory.ui.ReportView;
 
-public class ReportController {
-    private final InventoryFacade facade;
-    private final ReportView view;
+import java.util.List;
 
-    public ReportController(InventoryFacade facade, ReportView view) {
-        this.facade = facade;
+public class ReportController {
+    private final ProductRepository productRepo;
+    private final ReportFactory reportFactory;
+    private ReportView view;  // Added missing field
+
+    public ReportController(ProductRepository productRepo) {
+        this.productRepo = productRepo;
+        this.reportFactory = new ReportFactory();
+    }
+
+    public void setView(ReportView view) {
         this.view = view;
     }
 
-    public void generateReport(String reportType) {
-        String result = facade.generateReport(reportType);
-        view.displayReport(result);
-        view.log("Generated " + reportType + " report.");
+    public String generateReport(String reportType) {
+        List<Product> products = productRepo.findAll();
+        Report report = reportFactory.createReport(reportType);
+        return report != null ? report.generate(products) : "Unknown report type: " + reportType;
     }
 }

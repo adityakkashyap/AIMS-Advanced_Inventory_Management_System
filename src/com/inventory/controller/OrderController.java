@@ -3,71 +3,85 @@ package com.inventory.controller;
 import com.inventory.InventoryFacade;
 import com.inventory.model.OrderData;
 import com.inventory.model.Product;
+import com.inventory.repository.OrderRepository;
+import com.inventory.repository.ProductRepository;
 import com.inventory.ui.OrderView;
 
 import java.util.List;
 
 public class OrderController {
-    private final InventoryFacade facade;
-    private final OrderView view;
-    private final OrderData currentOrder;
+    private final ProductRepository productRepo;
+    private final OrderRepository orderRepo;
+    private OrderView view; // Optional for UI updates
 
-    public OrderController(InventoryFacade facade, OrderView view) {
-        this.facade = facade;
+    public OrderController(ProductRepository productRepo, OrderRepository orderRepo) {
+        this.productRepo = productRepo;
+        this.orderRepo = orderRepo;
+    }
+
+    public void setView(OrderView view) {
         this.view = view;
-        this.currentOrder = new OrderData();
     }
 
-    public void addToOrder(String productSelection, int quantity) {
-        if (productSelection == null || productSelection.isEmpty()) {
-            view.showErrorMessage("Please select a product", "Invalid Selection");
-            return;
-        }
-
-        try {
-            int productId = Integer.parseInt(productSelection.split(" - ")[0]);
-            Product product = facade.getProductDetails(productId);
-
-            if (product == null) {
-                view.showErrorMessage("Product not found", "Error");
-                return;
-            }
-
-            if (quantity > product.getStock()) {
-                view.showErrorMessage("Not enough stock available. Current stock: " + product.getStock(), 
-                                    "Insufficient Stock");
-                return;
-            }
-
-            currentOrder.addItem(productId, quantity);
-            view.addOrderItem(product, quantity);
-            view.log("Added " + quantity + " x " + product.getDescription() + " to order.");
-        } catch (Exception ex) {
-            view.showErrorMessage("Error adding product to order: " + ex.getMessage(), "Error");
-        }
-    }
-
-    public void completeOrder() {
-        if (currentOrder.getItems().isEmpty()) {
-            view.showErrorMessage("Cannot complete empty order", "Empty Order");
-            return;
-        }
-
-        boolean result = facade.createOrder(currentOrder);
-        if (result) {
-            view.showInfoMessage("Order completed successfully!", "Success");
-            view.log("Order completed successfully.");
-            currentOrder.getItems().clear();
-            view.clearOrderItems();
-            refreshProductList();
-        } else {
-            view.showErrorMessage("Order failed. Check stock levels.", "Order Failed");
-            view.log("Order failed. Check stock levels.");
-        }
+    public boolean processOrder(OrderData orderData) {
+        // Business logic for processing orders
+        return orderRepo.createOrder(orderData);  // Changed from saveOrder to createOrder
     }
 
     public void refreshProductList() {
-        List<Product> products = facade.getAllProducts();
-        view.updateProductDropdown(products);
+        if (view != null) {
+            view.updateProductDropdown(productRepo.findAll());
+        }
+    }
+
+    // UI-specific operations
+    public void addToOrder(String productSelection, int quantity) {
+        if (view != null) {
+            if (productSelection == null || productSelection.isEmpty()) {
+                view.showErrorMessage("Please select a product", "Invalid Selection");
+                return;
+            }
+
+            try {
+                int productId = Integer.parseInt(productSelection.split(" - ")[0]);
+                Product product = productRepo.findById(productId);  // Changed from getProductDetails to findById
+
+                if (product == null) {
+                    view.showErrorMessage("Product not found", "Error");
+                    return;
+                }
+
+                if (quantity > product.getStock()) {
+                    view.showErrorMessage("Not enough stock available. Current stock: " + product.getStock(),
+                            "Insufficient Stock");
+                    return;
+                }
+
+                OrderData currentOrder = new OrderData();
+                currentOrder.addItem(productId, quantity);
+                view.addOrderItem(product, quantity);
+                view.log("Added " + quantity + " x " + product.getDescription() + " to order.");
+            } catch (Exception ex) {
+                view.showErrorMessage("Error adding product to order: " + ex.getMessage(), "Error");
+            }
+        }
+    }
+    
+    // Add missing completeOrder method
+    public void completeOrder() {
+        if (view != null) {
+            OrderData orderData = view.getCurrentOrder();
+            if (orderData != null && !orderData.getItems().isEmpty()) {
+                boolean success = processOrder(orderData);
+                if (success) {
+                    view.clearOrder();
+                    view.log("Order completed successfully");
+                } else {
+                    view.showErrorMessage("Failed to complete order", "Order Error");
+                }
+            } else {
+                view.showErrorMessage("Cannot complete an empty order", "Empty Order");
+            }
+        }
     }
 }

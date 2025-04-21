@@ -3,32 +3,31 @@ package com.inventory.service;
 import com.inventory.model.OrderData;
 import com.inventory.model.Product;
 import com.inventory.repository.ProductRepository;
+import com.inventory.repository.OrderRepository;
 import java.util.Map;
 
 public class OrderProcessor {
     private final ProductRepository productRepo;
+    private final OrderRepository orderRepo;
 
-    public OrderProcessor(ProductRepository productRepo) {
+    public OrderProcessor(ProductRepository productRepo, OrderRepository orderRepo) {
         this.productRepo = productRepo;
+        this.orderRepo = orderRepo;
     }
 
     public boolean validateOrder(OrderData orderData) {
-        // Check if order is empty
-        if (orderData.getItems().isEmpty()) {
+        if (orderData == null || orderData.getItems().isEmpty()) {
             return false;
         }
 
-        // Validate each item
         for (Map.Entry<Integer, Integer> entry : orderData.getItems().entrySet()) {
             int productId = entry.getKey();
             int requestedQuantity = entry.getValue();
 
-            // Check for valid quantity
             if (requestedQuantity <= 0) {
                 return false;
             }
 
-            // Check product exists and has enough stock
             Product product = productRepo.findById(productId);
             if (product == null || product.getStock() < requestedQuantity) {
                 return false;
@@ -38,24 +37,33 @@ public class OrderProcessor {
     }
 
     public boolean processOrder(OrderData orderData) {
-        // Revalidate before processing
         if (!validateOrder(orderData)) {
             return false;
         }
 
-        boolean success = true;
-        // Process each item
+        // First update stock levels
         for (Map.Entry<Integer, Integer> entry : orderData.getItems().entrySet()) {
             int productId = entry.getKey();
             int quantity = entry.getValue();
             
-            // Decrease stock
             if (!productRepo.updateStock(productId, -quantity)) {
-                success = false;
-                break;
+                rollbackStockUpdates(orderData, entry.getKey());
+                return false;
             }
         }
 
-        return success;
+        // Then create order record
+        return orderRepo.createOrder(orderData);
+    }
+
+    private void rollbackStockUpdates(OrderData orderData, int failedProductId) {
+        for (Map.Entry<Integer, Integer> entry : orderData.getItems().entrySet()) {
+            int productId = entry.getKey();
+            if (productId == failedProductId) {
+                break;
+            }
+            // Restore previous stock levels
+            productRepo.updateStock(productId, entry.getValue());
+        }
     }
 }
